@@ -200,7 +200,7 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 | F01_RegistrarSiniestro | Alta desde Power Apps en Siniestros | Código de caso estable; Estado=PendienteAnalisis; historial “Creado” | **Implementado como FL02 (2026-11-02, ver §13)** |
 | F02_ValidarYAnalizar | Ítem nuevo/modificado con Estado=PendienteAnalisis y Procesado=No | Busca póliza; llama IA si procede; escribe AnalisisIA; aplica reglas; actualiza Siniestros e historial | Pendiente |
 | F03_NotificacionSimulada | Cambio de Estado detectado mediante comparación con historial | Registra entrada Correo/SMS ficticia en NotificacionesSimuladas | Pendiente |
-| F04_Reasignacion | Cambio aprobado de AjustadorAsignado | Registra anterior/nuevo, fecha, actor y motivo en HistorialSiniestros | Pendiente |
+| F04_Reasignacion | Cambio aprobado de AjustadorAsignado | Registra anterior/nuevo, fecha, actor y motivo en HistorialSiniestros | **Resuelto en la app de supervisión, sin flujo (2026-11-02, ver §14)** |
 
 **Antibucle e idempotencia:** cada flujo debe comprobar estado, Procesado y si ya existe el evento/decisión para el caso antes de escribir. Actualizar un elemento desde un flujo puede activar de nuevo un disparador “cuando se crea o modifica”. Los errores de API, timeouts, registros de póliza duplicados o valores inesperados no pueden conducir a aprobación automática.
 
@@ -269,8 +269,8 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 | P12 | HU-13 | Caso Grave o RiesgoFraude 80 | RevisionManual y Estado PendienteRevision. |
 | P13 | HU-13 | Límite de cobertura inferior al monto solicitado | Rechazado con motivo de límite, sin aprobación automática. |
 | P14 | HU-13 | ConfianzaIA 60 o datos IA malformados | RevisionManual, sin aprobación silenciosa. |
-| P15 | HU-17 | Supervisor cambia asignado A por B | AjustadorAsignado=B; historial conserva A, B, fecha y motivo. |
-| P16 | HU-17 | Reasignar sin motivo | Se bloquea o registra motivo obligatorio; no queda reasignación anónima. |
+| P15 | HU-17 | Supervisor cambia asignado A por B | AjustadorAsignado=B; historial conserva A, B, fecha y motivo. **Pasa (2026-11-02, ver §14).** |
+| P16 | HU-17 | Reasignar sin motivo | Se bloquea o registra motivo obligatorio; no queda reasignación anónima. **Pasa (2026-11-02, ver §14).** |
 | P17 | HU-21 | Siniestro cambia de estado | Genera registros de Correo y SMS **simulados** en < 5 minutos. |
 | P18 | HU-21 | El flujo reintenta el mismo cambio de estado | No duplica notificaciones. |
 | P19 | RNF-05 | Auditar aprobación y rechazo | Cada transición tiene fecha, origen/responsable y motivo. |
@@ -351,3 +351,36 @@ H01-02 y H01-03 se verificaron directamente en Siniestros (código, campos, esta
 - Los registros de prueba de HU-01 creados antes de activar FL02 no tienen evento "Creado"; se dejaron así intencionalmente.
 - FL01 sigue bloqueado con `@equals(1,0)` y no procesó ningún registro.
 - No se enviaron mensajes ni se hicieron pagos reales.
+
+## 14. Avance HU-17: reasignar casos (2026-11-02)
+
+**Estado:** implementada y probada en vista previa de Power Apps Studio con datos ficticios. Pendiente: publicar la app, incluirla en la solución (bloqueada temporalmente por la sesión de edición) y la aceptación del equipo/docente para cerrar el issue [#39](https://github.com/SaraEcheGom/Automatizacion/issues/39).
+
+### Qué quedó implementado
+
+- App de lienzo separada **GestionSiniestros - Supervision HU17** (rol supervisor), para que el reportante de HU-01 nunca vea la reasignación.
+- Pantalla con: selector del caso (Siniestros, más reciente primero), liquidador actual y estado, selector del nuevo liquidador (lista fija ficticia: Liquidador Ana, Bruno y Carla, todos ficticios), motivo obligatorio y botón **Reasignar caso**.
+- Al reasignar:
+  1. Valida caso seleccionado, motivo no vacío ni solo espacios y que el nuevo liquidador sea distinto del actual.
+  2. Actualiza `AjustadorAsignado` en Siniestros.
+  3. Si lo anterior funciona, registra en HistorialSiniestros: Accion = Reasignado, AsignadoAntes, AsignadoDespues, FechaEvento, Estado (anterior y nuevo, sin cambio), Responsable = usuario que reasigna, Origen = Usuario y Motivo.
+  4. Si falla la actualización, no escribe en el historial; si falla solo el historial, lo informa explícitamente.
+- Decisión de diseño: el registro lo hace la app y no un flujo F04, porque el disparador de SharePoint no expone el valor anterior de `AjustadorAsignado`.
+
+### Resultados de pruebas (vista previa, datos ficticios)
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| P16a | Reasignar con motivo vacío | **Pasa** | Mensaje "El motivo es obligatorio"; sin cambios ni eventos. |
+| P16b | Reasignar con motivo solo de espacios | **Pasa** | Mismo bloqueo; sin cambios ni eventos. |
+| H17-01 | Reasignar al mismo liquidador | **Pasa** | Advertencia; sin cambios ni eventos. |
+| P15a | Sin asignar → Liquidador Ana (ficticio) | **Pasa** | Siniestro actualizado; evento con antes "Sin asignar", después "Liquidador Ana (ficticio)", fecha, responsable y motivo. |
+| P15b | Liquidador Ana → Liquidador Bruno (ficticios) | **Pasa** | Siniestro con Bruno; evento con antes "Liquidador Ana", después "Liquidador Bruno". |
+
+Verificado directamente en las listas: el caso de prueba quedó con "Liquidador Bruno (ficticio)" y HistorialSiniestros tiene exactamente un evento "Creado" y dos "Reasignado" para ese código.
+
+### Riesgos y pendientes
+
+- **Interacción con FL01:** cada reasignación modifica el siniestro. Cuando se desbloquee FL01 (disparador "creado o modificado" con Procesado = No), una reasignación podría volver a disparar el análisis. Debe resolverse al trabajar HU-09/HU-13, por ejemplo marcando Procesado al terminar el análisis o filtrando por Estado en la condición del disparador.
+- El rol supervisor no está restringido técnicamente (cualquier persona con acceso a la app podría reasignar); queda como mejora de RNF-04.
+- Prueba en teléfono real: pendiente.
