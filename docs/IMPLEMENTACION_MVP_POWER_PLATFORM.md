@@ -15,7 +15,7 @@
 | Suite de automatización | Microsoft Power Platform del entorno académico EAFIT. | Acceso verificado |
 | Orquestación/BPMS | Flujos de nube en Power Automate. | Por implementar |
 | Aplicación de captura | Power Apps (Canvas App) orientada a móvil. | Por implementar |
-| Persistencia | Microsoft Lists sobre SharePoint, en vez de Dataverse, porque el usuario no pudo crear tablas en el entorno personal. | Dos listas creadas |
+| Persistencia | Microsoft Lists sobre SharePoint, en vez de Dataverse, porque el usuario no pudo crear tablas en el entorno personal. | Cinco listas creadas en el sitio SharePoint del curso |
 | Sistema core de aseguradora | **Simulación** mediante las listas y flujos; no existe core real ni integración productiva. | Diseño acordado |
 | IA | OpenRouter, modelo **openai/gpt-4o-mini**, invocado desde un conector personalizado. | Conector creado; prueba de texto HTTP 200 |
 | Análisis de fotos | Se prevé enviar imágenes y descripción al modelo multimodal. | **No validado aún** |
@@ -66,7 +66,7 @@ flowchart TD
 
 ### A. Siniestros — **creada, 17 columnas**
 
-Almacenada en Microsoft Lists del entorno personal de EAFIT; actualmente sin siniestros de prueba cargados.
+Almacenada en el sitio SharePoint del curso (Section_SI3017). Contiene registros ficticios de prueba (ver §12).
 
 | Columna | Tipo | Uso |
 | --- | --- | --- |
@@ -90,7 +90,7 @@ Almacenada en Microsoft Lists del entorno personal de EAFIT; actualmente sin sin
 
 ### B. PolizasSimuladas — **creada, 9 columnas**
 
-También en Microsoft Lists del entorno personal EAFIT; sin pólizas de prueba cargadas.
+También en el sitio SharePoint del curso (Section_SI3017), con pólizas ficticias de prueba.
 
 | Columna | Tipo | Uso |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ También en Microsoft Lists del entorno personal EAFIT; sin pólizas de prueba c
 | CoberturaDanios | Sí/No | Inicial No, por seguridad |
 | LimiteCoberturaCOP | Moneda COP, 0 decimales | Máximo de cobertura simulado |
 
-### C. AnalisisIA — **pendiente de crear**
+### C. AnalisisIA — **creada el 2026-11-02, 9 columnas + Título**
 
 Esquema recomendado:
 
@@ -121,15 +121,15 @@ Esquema recomendado:
 | Justificacion | Varias líneas |
 | ResultadoTecnico | Elección: Correcto, Error, NoConcluyente |
 
-Guardar una fila por intento para preservar el historial de IA, no sobrescribir el anterior.
+Guardar una fila por intento para preservar el historial de IA, no sobrescribir el anterior. Predeterminado de Severidad: SinClasificar; ConfianzaIA y RiesgoFraude limitados a 0–100 sin decimales.
 
-### D. HistorialSiniestros — **pendiente de crear**
+### D. HistorialSiniestros — **creada el 2026-11-02, 9 columnas + Título**
 
-Esquema recomendado: **Título** (SiniestroId), **FechaEvento** (fecha/hora), **Accion** (texto), **EstadoAnterior** (texto), **EstadoNuevo** (texto), **Responsable** (texto), **Origen** (Automatizacion/Usuario), **Motivo** (varias líneas), **AsignadoAntes** (texto), **AsignadoDespues** (texto). Una fila por transición o reasignación.
+Esquema recomendado: **Título** (SiniestroId), **FechaEvento** (fecha/hora), **Accion** (texto), **EstadoAnterior** (texto), **EstadoNuevo** (texto), **Responsable** (texto), **Origen** (Automatizacion/Usuario), **Motivo** (varias líneas), **AsignadoAntes** (texto), **AsignadoDespues** (texto). Una fila por transición o reasignación. Origen es elección (Automatizacion/Usuario), sin valor predeterminado.
 
-### E. NotificacionesSimuladas — **pendiente de crear**
+### E. NotificacionesSimuladas — **creada el 2026-11-02, 6 columnas + Título**
 
-Esquema recomendado: **Título** (SiniestroId), **FechaEvento** (fecha/hora), **Canal** (Correo/SMS), **DestinatarioSimulado** (texto ficticio), **TipoEvento** (texto), **Mensaje** (varias líneas), **EstadoSimulacion** (Generada/Error). **No usar conectores de SMS ni enviar mensajes a destinatarios reales**.
+Esquema recomendado: **Título** (SiniestroId), **FechaEvento** (fecha/hora), **Canal** (Correo/SMS), **DestinatarioSimulado** (texto ficticio), **TipoEvento** (texto), **Mensaje** (varias líneas), **EstadoSimulacion** (Generada/Error). **No usar conectores de SMS ni enviar mensajes a destinatarios reales**. Canal es elección sin predeterminado; EstadoSimulacion tiene predeterminado Generada.
 
 ### F. ConfigReglasSimuladas — **opcional / siguiente fase**
 
@@ -226,7 +226,7 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 - Solo nombres, documentos, placas, fotografías, correos y teléfonos **inventados**. Ningún siniestro o contrato real.
 - El repositorio es **público**: **nunca** subir API keys, cadenas Authorization, conexiones de Power Automate exportadas con credenciales, enlaces privados con tokens, datos personales ni capturas con secretos.
 - Mantener el secreto en la conexión del conector personalizado; restringir su uso a cuentas autorizadas.
-- Acceso a Lists según los permisos del tenant. Las listas creadas están en **Mis listas** del espacio personal, **no se ha verificado acceso del resto del equipo**. Antes de integrar, comprobar permisos y si conviene moverlas a un sitio SharePoint de equipo.
+- Acceso a Lists según los permisos del tenant. Las cinco listas están en el sitio SharePoint del curso (Section_SI3017) y heredan sus permisos; **no se ha verificado el acceso de cada miembro del equipo**. Comprobarlo antes de integrar.
 - RNF-03 (datos personales), RNF-04 (roles), RNF-05 (trazabilidad), RNF-01 (< 2 min de IA) y RNF-07 (< 10 min en móvil) **no están certificados por la prueba HTTP 200**.
 - No confundir “automático” con “aprobación real”: la decisión solo modifica registros de simulación.
 - Distinguir “hecho” de “pendiente” en toda presentación.
@@ -234,7 +234,7 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 ## 9. Próximos pasos por dependencia
 
 1. Preparar 5–8 pólizas y siniestros **completamente ficticios** que cubran aprobación, vencimiento, falta de cobertura, riesgo alto y error de IA.
-2. Crear AnalisisIA, HistorialSiniestros y NotificacionesSimuladas.
+2. ~~Crear AnalisisIA, HistorialSiniestros y NotificacionesSimuladas.~~ Hecho el 2026-11-02.
 3. ~~Conectar Power Apps a Siniestros; validar desde teléfono el límite de 10 fotos.~~ Hecho el 2026-11-02 (ver sección 12).
 4. Probar llamada multimodal real al conector (solo imágenes sintéticas) y salida JSON robusta.
 5. Configurar F01–F04 y pruebas funcionales/negativas sin duplicación.
