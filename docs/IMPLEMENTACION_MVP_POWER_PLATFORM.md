@@ -269,8 +269,8 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 | P12 | HU-13 | Caso Grave o RiesgoFraude 80 | RevisionManual y Estado PendienteRevision. |
 | P13 | HU-13 | Límite de cobertura inferior al monto solicitado | Rechazado con motivo de límite, sin aprobación automática. |
 | P14 | HU-13 | ConfianzaIA 60 o datos IA malformados | RevisionManual, sin aprobación silenciosa. |
-| P15 | HU-17 | Supervisor cambia asignado A por B | AjustadorAsignado=B; historial conserva A, B, fecha y motivo. **Pasa (2026-11-02, ver §14).** |
-| P16 | HU-17 | Reasignar sin motivo | Se bloquea o registra motivo obligatorio; no queda reasignación anónima. **Pasa (2026-11-02, ver §14).** |
+| P15 | HU-17 | Supervisor cambia asignado A por B | AjustadorAsignado=B; historial conserva A, B, fecha y motivo. **Pasa (2026-11-02, vista previa y teléfono real, ver §14).** |
+| P16 | HU-17 | Reasignar sin motivo | Se bloquea o registra motivo obligatorio; no queda reasignación anónima. **Pasa (2026-11-02, vista previa y teléfono real, ver §14).** |
 | P17 | HU-21 | Siniestro cambia de estado | Genera registros de Correo y SMS **simulados** en < 5 minutos. |
 | P18 | HU-21 | El flujo reintenta el mismo cambio de estado | No duplica notificaciones. |
 | P19 | RNF-05 | Auditar aprobación y rechazo | Cada transición tiene fecha, origen/responsable y motivo. |
@@ -354,11 +354,11 @@ H01-02 y H01-03 se verificaron directamente en Siniestros (código, campos, esta
 
 ## 14. Avance HU-17: reasignar casos (2026-11-02)
 
-**Estado:** implementada y probada en vista previa de Power Apps Studio con datos ficticios. Pendiente: publicar la app, incluirla en la solución (bloqueada temporalmente por la sesión de edición) y la aceptación del equipo/docente para cerrar el issue [#39](https://github.com/SaraEcheGom/Automatizacion/issues/39).
+**Estado:** implementada, publicada y probada en vista previa y en teléfono real con datos ficticios. Incluida en la solución GestionSiniestros. Pendiente solo la aceptación del equipo/docente para cerrar el issue [#39](https://github.com/SaraEcheGom/Automatizacion/issues/39).
 
 ### Qué quedó implementado
 
-- App de lienzo separada **GestionSiniestros - Supervision HU17** (rol supervisor), para que el reportante de HU-01 nunca vea la reasignación.
+- App de lienzo separada **GestionSiniestros - Supervision HU17** (rol supervisor, diseño Teléfono), **publicada e incluida en la solución GestionSiniestros**; solo la usa el propietario, sin compartir ni ampliar permisos, para que el reportante de HU-01 nunca vea la reasignación.
 - Pantalla con: selector del caso (Siniestros, más reciente primero), liquidador actual y estado, selector del nuevo liquidador (lista fija ficticia: Liquidador Ana, Bruno y Carla, todos ficticios), motivo obligatorio y botón **Reasignar caso**.
 - Al reasignar:
   1. Valida caso seleccionado, motivo no vacío ni solo espacios y que el nuevo liquidador sea distinto del actual.
@@ -377,10 +377,19 @@ H01-02 y H01-03 se verificaron directamente en Siniestros (código, campos, esta
 | P15a | Sin asignar → Liquidador Ana (ficticio) | **Pasa** | Siniestro actualizado; evento con antes "Sin asignar", después "Liquidador Ana (ficticio)", fecha, responsable y motivo. |
 | P15b | Liquidador Ana → Liquidador Bruno (ficticios) | **Pasa** | Siniestro con Bruno; evento con antes "Liquidador Ana", después "Liquidador Bruno". |
 
-Verificado directamente en las listas: el caso de prueba quedó con "Liquidador Bruno (ficticio)" y HistorialSiniestros tiene exactamente un evento "Creado" y dos "Reasignado" para ese código.
+### Resultados de pruebas (teléfono real, app publicada, datos ficticios)
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| H17-M01 | Abrir la app publicada en el celular y seleccionar el caso de prueba | **Pasa** | Muestra liquidador actual "Liquidador Bruno (ficticio)" y estado. |
+| H17-M02 | Reasignar sin motivo | **Pasa** | Mensaje "El motivo es obligatorio"; sin cambios ni eventos. |
+| H17-M03 | Reasignar al mismo liquidador | **Pasa** | Advertencia; sin cambios ni eventos. |
+| H17-M04 | Liquidador Bruno → Liquidador Carla (ficticios) con motivo | **Pasa** | Mensaje de éxito; siniestro con "Liquidador Carla (ficticio)"; evento Reasignado con antes Bruno, después Carla, fecha, responsable y motivo. |
+
+Verificado directamente en las listas: el caso de prueba quedó con "Liquidador Carla (ficticio)" y HistorialSiniestros tiene, para ese código, un evento "Creado" y tres "Reasignado" (Sin asignar → Ana → Bruno → Carla), en orden y sin duplicados.
 
 ### Riesgos y pendientes
 
 - **Interacción con FL01:** cada reasignación modifica el siniestro. Cuando se desbloquee FL01 (disparador "creado o modificado" con Procesado = No), una reasignación podría volver a disparar el análisis. Debe resolverse al trabajar HU-09/HU-13, por ejemplo marcando Procesado al terminar el análisis o filtrando por Estado en la condición del disparador.
 - El rol supervisor no está restringido técnicamente (cualquier persona con acceso a la app podría reasignar); queda como mejora de RNF-04.
-- Prueba en teléfono real: pendiente.
+- Prueba en teléfono real: **Pasa** (ver tabla anterior).
