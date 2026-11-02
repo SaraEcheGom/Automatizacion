@@ -197,7 +197,7 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 
 | Flujo sugerido | Disparador | Resultado | Estado |
 | --- | --- | --- | --- |
-| F01_RegistrarSiniestro | Alta desde Power Apps en Siniestros | Código de caso estable; Estado=PendienteAnalisis; historial “Creado” | Pendiente |
+| F01_RegistrarSiniestro | Alta desde Power Apps en Siniestros | Código de caso estable; Estado=PendienteAnalisis; historial “Creado” | **Implementado como FL02 (2026-11-02, ver §13)** |
 | F02_ValidarYAnalizar | Ítem nuevo/modificado con Estado=PendienteAnalisis y Procesado=No | Busca póliza; llama IA si procede; escribe AnalisisIA; aplica reglas; actualiza Siniestros e historial | Pendiente |
 | F03_NotificacionSimulada | Cambio de Estado detectado mediante comparación con historial | Registra entrada Correo/SMS ficticia en NotificacionesSimuladas | Pendiente |
 | F04_Reasignacion | Cambio aprobado de AjustadorAsignado | Registra anterior/nuevo, fecha, actor y motivo en HistorialSiniestros | Pendiente |
@@ -259,8 +259,8 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 | P02 | HU-01 | Adjuntar exactamente 10 fotos | Se aceptan 10 archivos y quedan vinculados al caso. **Pasa (2026-11-02, ver §12).** |
 | P03 | HU-01 | Intentar adjuntar 11 fotos | La app bloquea el undécimo con explicación. **Pasa (2026-11-02, ver §12).** |
 | P04 | HU-01 | Fecha o póliza vacía y sin descripción | Valida campos y evita alta inválida. **Pasa (2026-11-02, ver §12).** |
-| P05 | HU-05 | Crear siniestro desde la app | La lista Siniestros refleja el caso sin digitación duplicada. |
-| P06 | HU-05 | Reenviar el mismo evento o reintentar flujo | No duplica casos ni eventos de decisión. |
+| P05 | HU-05 | Crear siniestro desde la app | La lista Siniestros refleja el caso sin digitación duplicada. **Pasa (2026-11-02, ver §13).** |
+| P06 | HU-05 | Reenviar el mismo evento o reintentar flujo | No duplica casos ni eventos de decisión. **Pasa (2026-11-02, ver §13).** |
 | P07 | HU-09 | Imagen sintética de daño leve | Devuelve Leve, confianza y justificación. |
 | P08 | HU-09 | Imágenes sintéticas de daño medio y grave | Devuelve Medio/Grave y conserva la traza en AnalisisIA. |
 | P09 | HU-09 | Imagen ilegible o error de proveedor/API | No se aprueba; se deriva a revisión y se registra error. |
@@ -321,4 +321,33 @@ H01-02 y H01-03 se verificaron directamente en Siniestros (código, campos, esta
 
 - La prueba H01-03 se registró con monto 0,5 por error de digitación del probador; es un valor positivo válido según la regla actual. Si el equipo quiere un mínimo realista, debe añadirse como regla nueva.
 - FL01 (*Validar siniestro simulado*) sigue bloqueado con la condición de disparador `@equals(1,0)`; no procesó los registros de prueba (Procesado = No). Sus pruebas funcionales siguen pendientes (HU-05, HU-09, HU-13).
+- No se enviaron mensajes ni se hicieron pagos reales.
+
+## 13. Avance HU-05: registro automático en el core simulado (2026-11-02)
+
+**Estado:** implementada y probada con datos sintéticos. Pendiente solo la aceptación del equipo/docente para cerrar el issue [#27](https://github.com/SaraEcheGom/Automatizacion/issues/27).
+
+### Qué quedó implementado
+
+- La app de HU-01 escribe cada reporte directamente en **Siniestros**, que actúa como core simulado; no hay transcripción manual.
+- Flujo **FL02 - Registrar alta de siniestro**, activo e incluido en la solución **GestionSiniestros**:
+  1. Disparador "Cuando se crea un elemento" en Siniestros (solo creación, sondeo cada minuto).
+  2. *Get items* en HistorialSiniestros con filtro `Title eq '<código>' and Accion eq 'Creado'` (máximo 1).
+  3. Condición `length(resultado) = 0`:
+     - **Sí:** crea el evento con Título = código, FechaEvento = `utcNow()`, Accion = Creado, EstadoNuevo = Estado del siniestro, Responsable = FL02, Origen = Automatizacion, Motivo = "Alta registrada desde la app móvil (HU-01). Registro simulado."
+     - **No:** no escribe nada (idempotencia ante reintentos).
+- FL02 no modifica Siniestros, así que no puede reactivarse a sí mismo ni disparar FL01.
+- Listas nuevas creadas en el sitio del curso: AnalisisIA, HistorialSiniestros y NotificacionesSimuladas (ver §3).
+
+### Resultados de pruebas
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| P05 | Alta desde la app móvil con datos y foto sintéticos | **Pasa** | Siniestro creado con estado PendienteAnalisis; FL02 se ejecutó en < 1 s y registró el evento "Creado" en HistorialSiniestros unos 30 s después del alta. |
+| P06 | Reenviar dos veces la misma ejecución de FL02 | **Pasa** | Tres ejecuciones correctas para el mismo siniestro y un solo evento "Creado" en HistorialSiniestros. |
+
+### Observaciones
+
+- Los registros de prueba de HU-01 creados antes de activar FL02 no tienen evento "Creado"; se dejaron así intencionalmente.
+- FL01 sigue bloqueado con `@equals(1,0)` y no procesó ningún registro.
 - No se enviaron mensajes ni se hicieron pagos reales.
