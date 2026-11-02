@@ -235,7 +235,7 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 
 1. Preparar 5–8 pólizas y siniestros **completamente ficticios** que cubran aprobación, vencimiento, falta de cobertura, riesgo alto y error de IA.
 2. Crear AnalisisIA, HistorialSiniestros y NotificacionesSimuladas.
-3. Conectar Power Apps a Siniestros; validar desde teléfono el límite de 10 fotos.
+3. ~~Conectar Power Apps a Siniestros; validar desde teléfono el límite de 10 fotos.~~ Hecho el 2026-11-02 (ver sección 12).
 4. Probar llamada multimodal real al conector (solo imágenes sintéticas) y salida JSON robusta.
 5. Configurar F01–F04 y pruebas funcionales/negativas sin duplicación.
 6. Ejecutar y registrar la matriz de pruebas de la sección 11.
@@ -255,10 +255,10 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 
 | ID | HU | Escenario de prueba | Resultado esperado |
 | --- | --- | --- | --- |
-| P01 | HU-01 | Alta móvil con datos completos y 1 foto | Se crea un siniestro con ID y datos completos. |
-| P02 | HU-01 | Adjuntar exactamente 10 fotos | Se aceptan 10 archivos y quedan vinculados al caso. |
-| P03 | HU-01 | Intentar adjuntar 11 fotos | La app bloquea el undécimo con explicación. |
-| P04 | HU-01 | Fecha o póliza vacía y sin descripción | Valida campos y evita alta inválida. |
+| P01 | HU-01 | Alta móvil con datos completos y 1 foto | Se crea un siniestro con ID y datos completos. **Pasa (2026-11-02, ver §12).** |
+| P02 | HU-01 | Adjuntar exactamente 10 fotos | Se aceptan 10 archivos y quedan vinculados al caso. **Pasa (2026-11-02, ver §12).** |
+| P03 | HU-01 | Intentar adjuntar 11 fotos | La app bloquea el undécimo con explicación. **Pasa (2026-11-02, ver §12).** |
+| P04 | HU-01 | Fecha o póliza vacía y sin descripción | Valida campos y evita alta inválida. **Pasa (2026-11-02, ver §12).** |
 | P05 | HU-05 | Crear siniestro desde la app | La lista Siniestros refleja el caso sin digitación duplicada. |
 | P06 | HU-05 | Reenviar el mismo evento o reintentar flujo | No duplica casos ni eventos de decisión. |
 | P07 | HU-09 | Imagen sintética de daño leve | Devuelve Leve, confianza y justificación. |
@@ -280,3 +280,45 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 
 **Datos de arranque recomendados:** cinco pólizas ficticias (activa/vigente, vencida, sin cobertura, suspendida y cobertura insuficiente) y ocho siniestros ficticios (leve, medio, grave, riesgo alto, confianza baja, ausencia de póliza, vencimiento y reintento). Evitar usar identificaciones o imágenes de personas reales.
 
+## 12. Avance HU-01: app móvil de reporte (2026-11-02)
+
+**Estado:** implementada y probada en teléfono real con datos y fotos sintéticos. Pendiente solo la aceptación del equipo/docente para cerrar el issue [#23](https://github.com/SaraEcheGom/Automatizacion/issues/23).
+
+### Qué quedó implementado
+
+- App de lienzo **GestionSiniestros - Reportar siniestro HU01** (diseño Teléfono), **guardada, publicada e incluida en la solución GestionSiniestros**. Solo la usa el propietario; no se compartió ni se ampliaron permisos.
+- Formulario clásico `Form1` enlazado a la lista **Siniestros** (`FormMode.New`).
+- Etiquetas visibles en español sin cambiar los nombres internos de las columnas: Nombre del asegurado (ficticio), Documento ficticio, Número de póliza simulada, Placa ficticia, Fecha y hora del accidente, Descripción del accidente, Monto estimado (COP), Fotografías del daño (1 a 10).
+- Campos internos ocultos: `Título` = código `SIN-<GUID>` y `Estado` = `PendienteAnalisis`. No se muestran al reportante campos de decisión, fraude ni confianza.
+- Código de caso: se genera una vez al abrir la pantalla y solo se regenera con "Reportar otro siniestro"; un reintento tras un fallo conserva el mismo código.
+- Validaciones del botón **Enviar reporte** antes de `SubmitForm`:
+  - texto obligatorio sin vacíos ni solo espacios (nombre, documento, póliza, placa, descripción);
+  - fecha seleccionada y fecha/hora no futura;
+  - monto numérico y mayor que 0;
+  - entre 1 y 10 adjuntos, con extensión JPG, JPEG, PNG o WEBP.
+- Control de adjuntos: `MaxAttachments = 10`, `MaxAttachmentSize = 10` MB. Los archivos se guardan con el propio `SubmitForm`.
+- Prevención de doble envío: el botón queda deshabilitado mientras `varGuardando` es verdadero.
+- Valores iniciales confirmados en la lista: Procesado = No, CoberturaValida = No, Decision = Pendiente, Severidad = SinClasificar. (El predeterminado de Estado en la lista es Borrador; la app lo fija en PendienteAnalisis.)
+
+### Resultados de pruebas (teléfono real, datos y fotos sintéticos)
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| H01-01 | Envío con formulario vacío (Studio) | **Pasa** | Mensaje de validación; sin registro creado. |
+| H01-02 | Alta completa con 1 foto | **Pasa** | Registro con código SIN-…, Estado PendienteAnalisis, 1 adjunto. |
+| H01-03 | Alta con exactamente 10 fotos | **Pasa** | Registro con 10 adjuntos JPG/PNG verificado en la lista. |
+| H01-04 | Intentar agregar la foto 11 | **Pasa** | El control no la acepta (límite alcanzado). |
+| H01-05 | Nombre solo con espacios | **Pasa** | Envío bloqueado. |
+| H01-06 | Fecha futura | **Pasa** | Envío bloqueado. |
+| H01-07 | Monto vacío, no numérico, 0 y negativo | **Pasa** | Envío bloqueado en los cuatro casos. |
+| H01-08 | Archivo con extensión no permitida (.bmp) | **Pasa** | Envío bloqueado. |
+| H01-09 | Archivo de más de 10 MB | **Pasa** | El control no lo acepta. |
+| H01-10 | Sin conexión al enviar y reintento | **Pasa** | Error mostrado; el reintento conservó el código y no hubo duplicados en la lista. |
+
+H01-02 y H01-03 se verificaron directamente en Siniestros (código, campos, estado, adjuntos y ausencia de duplicados). H01-04 a H01-10 los ejecutó el responsable en el teléfono; el resultado es consistente con que no se crearon registros adicionales.
+
+### Observaciones
+
+- La prueba H01-03 se registró con monto 0,5 por error de digitación del probador; es un valor positivo válido según la regla actual. Si el equipo quiere un mínimo realista, debe añadirse como regla nueva.
+- FL01 (*Validar siniestro simulado*) sigue bloqueado con la condición de disparador `@equals(1,0)`; no procesó los registros de prueba (Procesado = No). Sus pruebas funcionales siguen pendientes (HU-05, HU-09, HU-13).
+- No se enviaron mensajes ni se hicieron pagos reales.
