@@ -199,7 +199,7 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 | --- | --- | --- | --- |
 | F01_RegistrarSiniestro | Alta desde Power Apps en Siniestros | Código de caso estable; Estado=PendienteAnalisis; historial “Creado” | **Implementado como FL02 (2026-11-02, ver §13)** |
 | F02_ValidarYAnalizar | Ítem nuevo/modificado con Estado=PendienteAnalisis y Procesado=No | Busca póliza; llama IA si procede; escribe AnalisisIA; aplica reglas; actualiza Siniestros e historial | Pendiente |
-| F03_NotificacionSimulada | Cambio de Estado detectado mediante comparación con historial | Registra entrada Correo/SMS ficticia en NotificacionesSimuladas | Pendiente |
+| F03_NotificacionSimulada | Cambio de Estado detectado mediante comparación con historial | Registra entrada Correo/SMS ficticia en NotificacionesSimuladas | **Implementado como FL03 (2026-11-02, ver §15)** |
 | F04_Reasignacion | Cambio aprobado de AjustadorAsignado | Registra anterior/nuevo, fecha, actor y motivo en HistorialSiniestros | **Resuelto en la app de supervisión, sin flujo (2026-11-02, ver §14)** |
 
 **Antibucle e idempotencia:** cada flujo debe comprobar estado, Procesado y si ya existe el evento/decisión para el caso antes de escribir. Actualizar un elemento desde un flujo puede activar de nuevo un disparador “cuando se crea o modifica”. Los errores de API, timeouts, registros de póliza duplicados o valores inesperados no pueden conducir a aprobación automática.
@@ -271,8 +271,8 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 | P14 | HU-13 | ConfianzaIA 60 o datos IA malformados | RevisionManual, sin aprobación silenciosa. |
 | P15 | HU-17 | Supervisor cambia asignado A por B | AjustadorAsignado=B; historial conserva A, B, fecha y motivo. **Pasa (2026-11-02, vista previa y teléfono real, ver §14).** |
 | P16 | HU-17 | Reasignar sin motivo | Se bloquea o registra motivo obligatorio; no queda reasignación anónima. **Pasa (2026-11-02, vista previa y teléfono real, ver §14).** |
-| P17 | HU-21 | Siniestro cambia de estado | Genera registros de Correo y SMS **simulados** en < 5 minutos. |
-| P18 | HU-21 | El flujo reintenta el mismo cambio de estado | No duplica notificaciones. |
+| P17 | HU-21 | Siniestro cambia de estado | Genera registros de Correo y SMS **simulados** en < 5 minutos. **Pasa (2026-11-02, ver §15).** |
+| P18 | HU-21 | El flujo reintenta el mismo cambio de estado | No duplica notificaciones. **Pasa tras corrección (2026-11-02, ver §15).** |
 | P19 | RNF-05 | Auditar aprobación y rechazo | Cada transición tiene fecha, origen/responsable y motivo. |
 | P20 | RNF-01 | Ejecutar lote de análisis de prueba | Medir latencia y evidenciar si < 120 s; no declararlo cumplido antes. |
 
@@ -393,3 +393,37 @@ Verificado directamente en las listas: el caso de prueba quedó con "Liquidador 
 - **Interacción con FL01:** cada reasignación modifica el siniestro. Cuando se desbloquee FL01 (disparador "creado o modificado" con Procesado = No), una reasignación podría volver a disparar el análisis. Debe resolverse al trabajar HU-09/HU-13, por ejemplo marcando Procesado al terminar el análisis o filtrando por Estado en la condición del disparador.
 - El rol supervisor no está restringido técnicamente (cualquier persona con acceso a la app podría reasignar); queda como mejora de RNF-04.
 - Prueba en teléfono real: **Pasa** (ver tabla anterior).
+
+## 15. Avance HU-21: avisos simulados de correo y SMS (2026-11-02)
+
+**Estado:** implementada y probada con datos ficticios. **No se envía ningún correo ni SMS real**: solo se generan registros simulados. Pendiente: que el equipo/docente acepte esta adaptación del criterio original ("mensajes enviados") y cierre el issue [#43](https://github.com/SaraEcheGom/Automatizacion/issues/43).
+
+### Qué quedó implementado
+
+- Flujo de nube **FL03 - Generar avisos simulados**, incluido en la solución GestionSiniestros y activado.
+- Disparador: SharePoint "Cuando se crea o se modifica un elemento" en Siniestros, con control de simultaneidad = 1 (una ejecución a la vez, para evitar duplicados por carreras).
+- Pasos:
+  1. Obtiene de NotificacionesSimuladas el último aviso de **Correo** del mismo código de caso (`Title eq '<código>' and Canal eq 'Correo'`, orden `ID desc`, máximo 1).
+  2. Condición: si su `TipoEvento` (o `ninguno` si no existe) es distinto de `CambioEstado:<Estado actual>`, el estado cambió desde el último aviso.
+  3. Si cambió, crea dos registros: uno con Canal = Correo y otro con Canal = SMS. Cada uno lleva el código del caso, FechaEvento = fecha de modificación del siniestro, `TipoEvento = CambioEstado:<estado>`, un destinatario marcado "simulado (no se envía)" con el nombre ficticio del asegurado, un mensaje que empieza por "[SIMULADO - NO ENVIADO]" y EstadoSimulacion = Generada.
+  4. Si no cambió (reasignaciones, ediciones de otros campos o reprocesos del mismo cambio), no hace nada.
+- No usa conectores de Outlook, SMS ni similares.
+
+### Resultados de pruebas (datos ficticios, caso de prueba SIN-7bd20af3…)
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| P17 | Estado PendienteAnalisis → PendienteRevision | **Pasa** | Avisos 1 (Correo) y 2 (SMS) creados 34 s después del cambio. |
+| P18 (1.er intento) | Guardar de nuevo el mismo estado | **Falla** | Se crearon avisos duplicados (3 y 4). Causa: el diseñador clásico guardó la condición como texto escapado (`@@{...}`), así que comparaba dos cadenas literales siempre distintas. |
+| P18 (tras corrección) | Guardar de nuevo el mismo estado | **Pasa** | La condición se corrigió en el diseñador nuevo (verificada en vista de código). FL03 se ejecutó y no creó avisos nuevos. |
+| H21-01 | Estado PendienteRevision → PendienteAnalisis | **Pasa** | Avisos 5 (Correo) y 6 (SMS) creados 34 s después del cambio. El caso quedó de nuevo en PendienteAnalisis. |
+
+Los avisos 3 y 4 se conservan en la lista como evidencia del defecto encontrado y corregido.
+
+### Riesgos y pendientes
+
+- **Adaptación del criterio:** HU-21 pide mensajes enviados; el MVP solo demuestra la generación de avisos simulados. Debe aceptarse expresamente.
+- La deduplicación se basa en el último aviso registrado: si FL03 falla entre la creación del aviso de Correo y la del SMS, el reintento no crearía el SMS. Riesgo bajo para el prototipo.
+- Cuando se desbloquee FL01, cada cambio de estado que haga generará avisos, que es el comportamiento esperado.
+- FL01 sigue bloqueado con `@equals(1,0)`; las pruebas de HU-21 no lo dispararon.
+
