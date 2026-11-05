@@ -473,3 +473,55 @@ Los 9 casos quedaron con Procesado = Sí y un evento FL01 cada uno en HistorialS
 - Cada análisis consume saldo de la clave de OpenRouter del equipo (unas pocas imágenes pequeñas por caso).
 - Al cambiar el conector se eliminó la operación ProbarConexion; cualquier flujo que la usara debe pasar a ClasificarDanio (FL01 ya lo hace).
 
+
+## 17. Avance HU-15, HU-24, HU-11, HU-08 y HU-02 (2026-11-05)
+
+**Estado:** implementadas y probadas con datos **ficticios**. Ninguna envía correos o SMS reales, hace pagos ni usa pólizas reales. Pendiente: aceptación del equipo/docente para cerrar [#37](https://github.com/SaraEcheGom/Automatizacion/issues/37), [#46](https://github.com/SaraEcheGom/Automatizacion/issues/46), [#33](https://github.com/SaraEcheGom/Automatizacion/issues/33), [#30](https://github.com/SaraEcheGom/Automatizacion/issues/30) y [#24](https://github.com/SaraEcheGom/Automatizacion/issues/24).
+
+### Qué cambió
+
+- **HU-15 · Umbrales sin programar (#37):** FL01 lee en cada ejecución la fila `VIGENTE` de ConfigReglasSimuladas (monto máximo, riesgo máximo, confianza mínima, riesgo de fraude y versión). Para cambiar una regla basta editar esa fila en la lista; no se toca el flujo. El motivo de cada decisión cita la versión de reglas usada. Valores vigentes: 2.000.000 / 20 / 85 / 60, versión `v1-propuesta-2026-11-02`.
+- **HU-24 · Historial de decisiones (#46):** nueva vista **"Historial de decisiones"** en HistorialSiniestros, agrupada por siniestro y ordenada por fecha. Muestra acción, estado anterior y nuevo, responsable, origen, motivo y asignación antes y después. FL01, FL02 y la app de HU-17 ya escriben esos campos.
+- **HU-11 · Puntaje de riesgo de fraude (#33):**
+  - FL01 calcula un puntaje de 0 a 100: `riesgo_fraude de la IA + 15 × (número de señales por reglas)`, con tope en 100.
+  - Señales por reglas (simuladas):
+    - monto ≥ 80 % del límite de la póliza;
+    - descripción de menos de 25 caracteres;
+    - accidente dentro de los primeros 30 días de vigencia.
+  - La IA también devuelve `senales_fraude`.
+  - Las señales quedan en texto en la nueva columna **SenalesFraude** (AnalisisIA y Siniestros) para que el analista vea por qué se marcó el caso.
+  - Con puntaje ≥ 60 el caso va a revisión manual prioritaria.
+- **HU-08 · Aviso inmediato de no cobertura (#30):**
+  - Los rechazos citan una **cláusula simulada**:
+    - 1 Identificación de la póliza
+    - 2 Estado de la póliza
+    - 3 Vigencia, con fechas
+    - 4 Cobertura de daños
+    - 5 Límite asegurado, con montos
+    - 6 Valor reclamado
+  - El motivo tiene el formato "SIMULACIÓN: no cubierto. Cláusula N – …". Reemplaza los textos de rechazo descritos en §16.
+  - FL03 agrega "Motivo: …" a los avisos simulados de correo y SMS cuando el estado es Rechazado.
+- **HU-02 · Número de caso (#24):**
+  - Al crear el siniestro, FL02 genera en NotificacionesSimuladas un **correo simulado** (no enviado) con el número de caso. TipoEvento = `NumeroCaso`.
+  - El filtro de deduplicación de FL03 ahora solo considera avisos `CambioEstado:*`, para que el aviso de número de caso no bloquee los de cambio de estado.
+  - Adaptación: el número se informa por aviso simulado y en la app (el ID del caso), no por correo real.
+
+### Resultados de pruebas (datos ficticios)
+
+| Caso | Esperado | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| SIN-PRU-HU15-A · umbral cambiado temporalmente a v2 (monto máx. 800.000) | Revisión | **Pasa** | PendienteRevision citando la versión v2. |
+| SIN-PRU-HU15-B · umbral restaurado a v1 | Aprobación | **Pasa** | Aprobado. Las decisiones anteriores no cambiaron. |
+| Vista "Historial de decisiones" | Cada evento con fecha, responsable y motivo | **Pasa** | 22 eventos revisados, todos con esos tres campos. |
+| SIN-PRU-HU11-S · 8.500.000 · descripción "Choque." | Señales y revisión | **Pasa** | Puntaje 40 = IA 10 + 2 señales × 15; PendienteRevision; SenalesFraude con el detalle. |
+| SIN-PRU-HU11-N · caso normal | Sin señales | **Pasa** | Puntaje 10, "sin señales adicionales", Aprobado. |
+| SIN-PRU-HU08-V · accidente antes de la vigencia | Rechazo con cláusula | **Pasa** | "Cláusula 3 – Vigencia (simulada) … (2026-01-01 a 2027-12-31)". |
+| SIN-PRU-HU08-L · monto sobre el límite | Rechazo con cláusula | **Pasa** | "Cláusula 5 – Límite asegurado" con los montos. |
+| SIN-PRU-HU02-R · alta + rechazo por vigencia | Número de caso y avisos de rechazo con motivo | **Pasa** | 1 aviso `NumeroCaso` (FL02); 2 avisos `CambioEstado:Rechazado` (correo y SMS) con "Motivo: … Cláusula 3"; sin duplicados. |
+
+### Riesgos y pendientes
+
+- **HU-15:** cambiar ConfigReglasSimuladas afecta todos los casos nuevos de inmediato, y la lista no exige aprobación del cambio. Conviene restringir quién puede editarla.
+- **HU-11:** el puntaje y el peso de 15 por señal son una propuesta simulada, no un modelo de fraude calibrado. Falta probar un caso con puntaje ≥ 60.
+- **HU-02:** el aviso de número de caso solo se genera al crear el elemento. Si FL02 falla, no hay reintento automático.
+- La operación ProbarConexion se eliminó del conector OpenRouter (ver §16).
