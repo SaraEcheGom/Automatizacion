@@ -15,10 +15,10 @@
 | Suite de automatización | Microsoft Power Platform del entorno académico EAFIT. | Acceso verificado |
 | Orquestación/BPMS | Flujos de nube en Power Automate. | Por implementar |
 | Aplicación de captura | Power Apps (Canvas App) orientada a móvil. | Por implementar |
-| Persistencia | Microsoft Lists sobre SharePoint, en vez de Dataverse, porque el usuario no pudo crear tablas en el entorno personal. | Dos listas creadas |
+| Persistencia | Microsoft Lists sobre SharePoint, en vez de Dataverse, porque el usuario no pudo crear tablas en el entorno personal. | Cinco listas creadas en el sitio SharePoint del curso |
 | Sistema core de aseguradora | **Simulación** mediante las listas y flujos; no existe core real ni integración productiva. | Diseño acordado |
-| IA | OpenRouter, modelo **openai/gpt-4o-mini**, invocado desde un conector personalizado. | Conector creado; prueba de texto HTTP 200 |
-| Análisis de fotos | Se prevé enviar imágenes y descripción al modelo multimodal. | **No validado aún** |
+| IA | OpenRouter, modelo **openai/gpt-4o-mini**, invocado desde un conector personalizado. | Operación `ClasificarDanio` (texto + imágenes) usada por FL01 (ver §16) |
+| Análisis de fotos | Hasta 3 fotos y la descripción se envían al modelo multimodal. | **Probado con fotos sintéticas (2026-11-03, ver §16)** |
 | Severidad | **Leve, Medio, Grave**; “Medio” equivale a “moderado” en la HU-09 original. | Decidido |
 | Aprobación, rechazo, pagos y avisos | Solo cambios de estado y registros de simulación; **sin aprobar pólizas reales, transferir dinero ni enviar mensajes a clientes reales**. | Decidido |
 | Colaboración | GitHub Issues para las HU y este repositorio para acuerdos, arquitectura, pruebas y documentación. | En curso |
@@ -66,7 +66,7 @@ flowchart TD
 
 ### A. Siniestros — **creada, 17 columnas**
 
-Almacenada en Microsoft Lists del entorno personal de EAFIT; actualmente sin siniestros de prueba cargados.
+Almacenada en el sitio SharePoint del curso (Section_SI3017). Contiene registros ficticios de prueba (ver §12).
 
 | Columna | Tipo | Uso |
 | --- | --- | --- |
@@ -90,7 +90,7 @@ Almacenada en Microsoft Lists del entorno personal de EAFIT; actualmente sin sin
 
 ### B. PolizasSimuladas — **creada, 9 columnas**
 
-También en Microsoft Lists del entorno personal EAFIT; sin pólizas de prueba cargadas.
+También en el sitio SharePoint del curso (Section_SI3017), con pólizas ficticias de prueba.
 
 | Columna | Tipo | Uso |
 | --- | --- | --- |
@@ -104,7 +104,7 @@ También en Microsoft Lists del entorno personal EAFIT; sin pólizas de prueba c
 | CoberturaDanios | Sí/No | Inicial No, por seguridad |
 | LimiteCoberturaCOP | Moneda COP, 0 decimales | Máximo de cobertura simulado |
 
-### C. AnalisisIA — **pendiente de crear**
+### C. AnalisisIA — **creada el 2026-11-02, 9 columnas + Título**
 
 Esquema recomendado:
 
@@ -121,17 +121,21 @@ Esquema recomendado:
 | Justificacion | Varias líneas |
 | ResultadoTecnico | Elección: Correcto, Error, NoConcluyente |
 
-Guardar una fila por intento para preservar el historial de IA, no sobrescribir el anterior.
+Guardar una fila por intento para preservar el historial de IA, no sobrescribir el anterior. Predeterminado de Severidad: SinClasificar; ConfianzaIA y RiesgoFraude limitados a 0–100 sin decimales.
 
-### D. HistorialSiniestros — **pendiente de crear**
+### D. HistorialSiniestros — **creada el 2026-11-02, 9 columnas + Título**
 
-Esquema recomendado: **Título** (SiniestroId), **FechaEvento** (fecha/hora), **Accion** (texto), **EstadoAnterior** (texto), **EstadoNuevo** (texto), **Responsable** (texto), **Origen** (Automatizacion/Usuario), **Motivo** (varias líneas), **AsignadoAntes** (texto), **AsignadoDespues** (texto). Una fila por transición o reasignación.
+Esquema recomendado: **Título** (SiniestroId), **FechaEvento** (fecha/hora), **Accion** (texto), **EstadoAnterior** (texto), **EstadoNuevo** (texto), **Responsable** (texto), **Origen** (Automatizacion/Usuario), **Motivo** (varias líneas), **AsignadoAntes** (texto), **AsignadoDespues** (texto). Una fila por transición o reasignación. Origen es elección (Automatizacion/Usuario), sin valor predeterminado.
 
-### E. NotificacionesSimuladas — **pendiente de crear**
+### E. NotificacionesSimuladas — **creada el 2026-11-02, 6 columnas + Título**
 
-Esquema recomendado: **Título** (SiniestroId), **FechaEvento** (fecha/hora), **Canal** (Correo/SMS), **DestinatarioSimulado** (texto ficticio), **TipoEvento** (texto), **Mensaje** (varias líneas), **EstadoSimulacion** (Generada/Error). **No usar conectores de SMS ni enviar mensajes a destinatarios reales**.
+Esquema recomendado: **Título** (SiniestroId), **FechaEvento** (fecha/hora), **Canal** (Correo/SMS), **DestinatarioSimulado** (texto ficticio), **TipoEvento** (texto), **Mensaje** (varias líneas), **EstadoSimulacion** (Generada/Error). **No usar conectores de SMS ni enviar mensajes a destinatarios reales**. Canal es elección sin predeterminado; EstadoSimulacion tiene predeterminado Generada.
 
-### F. ConfigReglasSimuladas — **opcional / siguiente fase**
+### F. ConfigReglasSimuladas — **creada el 2026-11-03 (usada por FL01)**
+
+Fila única `VIGENTE` con columnas MontoMaxAutoCOP (2.000.000), RiesgoMaxAuto (20), ConfianzaMinAuto (85), RiesgoFraudeRevision (60), Version (`v1-propuesta-2026-11-02`) y Notas. FL01 lee esta fila en cada ejecución; si no existe, usa esos mismos valores por defecto. Los umbrales siguen siendo una **propuesta pendiente de ratificación**.
+
+Nota original:
 
 Para HU-15 (#37), se podrán mantener límites y versiones de reglas sin editar flujos. No es necesaria para cerrar primero las seis HU de Felipe, pero los umbrales no deben esconderse como si ya estuvieran aprobados por el equipo.
 
@@ -142,8 +146,8 @@ Para HU-15 (#37), se podrán mantener límites y versiones de reglas sin editar 
 **Método:** POST, **host:** openrouter.ai, **ruta:** /api/v1/chat/completions, **HTTPS**.  
 **Seguridad:** API Key en encabezado Authorization, con formato Bearer, administrada en la conexión personal.  
 **Modelo usado en prueba:** openai/gpt-4o-mini.  
-**Operación de prueba:** ProbarConexion.  
-**Evidencia observada:** prueba de **texto** con respuesta HTTP **200**; **NO** demuestra aún clasificación de fotografías, ni el flujo extremo a extremo.
+**Operación actual:** ClasificarDanio (2026-11-03). Sustituyó a la operación de prueba ProbarConexion (solo texto), porque dos operaciones no pueden compartir el mismo método y ruta. Su cuerpo se definió desde una muestra con `messages[].content` como arreglo de partes `text` e `image_url`, `temperature`, `max_tokens` y `response_format` JSON.  
+**Evidencia observada:** inicialmente, prueba de **texto** con HTTP 200. Desde el 2026-11-03, clasificación de fotos sintéticas extremo a extremo dentro de FL01 (ver §16).
 
 Ejemplo conceptual de solicitud (sin claves ni datos personales):
 
@@ -197,10 +201,10 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 
 | Flujo sugerido | Disparador | Resultado | Estado |
 | --- | --- | --- | --- |
-| F01_RegistrarSiniestro | Alta desde Power Apps en Siniestros | Código de caso estable; Estado=PendienteAnalisis; historial “Creado” | Pendiente |
-| F02_ValidarYAnalizar | Ítem nuevo/modificado con Estado=PendienteAnalisis y Procesado=No | Busca póliza; llama IA si procede; escribe AnalisisIA; aplica reglas; actualiza Siniestros e historial | Pendiente |
-| F03_NotificacionSimulada | Cambio de Estado detectado mediante comparación con historial | Registra entrada Correo/SMS ficticia en NotificacionesSimuladas | Pendiente |
-| F04_Reasignacion | Cambio aprobado de AjustadorAsignado | Registra anterior/nuevo, fecha, actor y motivo en HistorialSiniestros | Pendiente |
+| F01_RegistrarSiniestro | Alta desde Power Apps en Siniestros | Código de caso estable; Estado=PendienteAnalisis; historial “Creado” | **Implementado como FL02 (2026-11-02, ver §13)** |
+| F02_ValidarYAnalizar | Ítem nuevo/modificado con Estado=PendienteAnalisis y Procesado=No | Busca póliza; llama IA si procede; escribe AnalisisIA; aplica reglas; actualiza Siniestros e historial | **Implementado como FL01 (2026-11-03, ver §16)** |
+| F03_NotificacionSimulada | Cambio de Estado detectado mediante comparación con historial | Registra entrada Correo/SMS ficticia en NotificacionesSimuladas | **Implementado como FL03 (2026-11-02, ver §15)** |
+| F04_Reasignacion | Cambio aprobado de AjustadorAsignado | Registra anterior/nuevo, fecha, actor y motivo en HistorialSiniestros | **Resuelto en la app de supervisión, sin flujo (2026-11-02, ver §14)** |
 
 **Antibucle e idempotencia:** cada flujo debe comprobar estado, Procesado y si ya existe el evento/decisión para el caso antes de escribir. Actualizar un elemento desde un flujo puede activar de nuevo un disparador “cuando se crea o modifica”. Los errores de API, timeouts, registros de póliza duplicados o valores inesperados no pueden conducir a aprobación automática.
 
@@ -226,7 +230,7 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 - Solo nombres, documentos, placas, fotografías, correos y teléfonos **inventados**. Ningún siniestro o contrato real.
 - El repositorio es **público**: **nunca** subir API keys, cadenas Authorization, conexiones de Power Automate exportadas con credenciales, enlaces privados con tokens, datos personales ni capturas con secretos.
 - Mantener el secreto en la conexión del conector personalizado; restringir su uso a cuentas autorizadas.
-- Acceso a Lists según los permisos del tenant. Las listas creadas están en **Mis listas** del espacio personal, **no se ha verificado acceso del resto del equipo**. Antes de integrar, comprobar permisos y si conviene moverlas a un sitio SharePoint de equipo.
+- Acceso a Lists según los permisos del tenant. Las cinco listas están en el sitio SharePoint del curso (Section_SI3017) y heredan sus permisos; **no se ha verificado el acceso de cada miembro del equipo**. Comprobarlo antes de integrar.
 - RNF-03 (datos personales), RNF-04 (roles), RNF-05 (trazabilidad), RNF-01 (< 2 min de IA) y RNF-07 (< 10 min en móvil) **no están certificados por la prueba HTTP 200**.
 - No confundir “automático” con “aprobación real”: la decisión solo modifica registros de simulación.
 - Distinguir “hecho” de “pendiente” en toda presentación.
@@ -234,7 +238,7 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 ## 9. Próximos pasos por dependencia
 
 1. Preparar 5–8 pólizas y siniestros **completamente ficticios** que cubran aprobación, vencimiento, falta de cobertura, riesgo alto y error de IA.
-2. Crear AnalisisIA, HistorialSiniestros y NotificacionesSimuladas.
+2. ~~Crear AnalisisIA, HistorialSiniestros y NotificacionesSimuladas.~~ Hecho el 2026-11-02.
 3. ~~Conectar Power Apps a Siniestros; validar desde teléfono el límite de 10 fotos.~~ Hecho el 2026-11-02 (ver sección 12).
 4. Probar llamada multimodal real al conector (solo imágenes sintéticas) y salida JSON robusta.
 5. Configurar F01–F04 y pruebas funcionales/negativas sin duplicación.
@@ -259,22 +263,22 @@ Para HU-09, el siguiente paso es probar el formato multimodal de OpenRouter con 
 | P02 | HU-01 | Adjuntar exactamente 10 fotos | Se aceptan 10 archivos y quedan vinculados al caso. **Pasa (2026-11-02, ver §12).** |
 | P03 | HU-01 | Intentar adjuntar 11 fotos | La app bloquea el undécimo con explicación. **Pasa (2026-11-02, ver §12).** |
 | P04 | HU-01 | Fecha o póliza vacía y sin descripción | Valida campos y evita alta inválida. **Pasa (2026-11-02, ver §12).** |
-| P05 | HU-05 | Crear siniestro desde la app | La lista Siniestros refleja el caso sin digitación duplicada. |
-| P06 | HU-05 | Reenviar el mismo evento o reintentar flujo | No duplica casos ni eventos de decisión. |
-| P07 | HU-09 | Imagen sintética de daño leve | Devuelve Leve, confianza y justificación. |
-| P08 | HU-09 | Imágenes sintéticas de daño medio y grave | Devuelve Medio/Grave y conserva la traza en AnalisisIA. |
-| P09 | HU-09 | Imagen ilegible o error de proveedor/API | No se aprueba; se deriva a revisión y se registra error. |
-| P10 | HU-13 | Póliza activa, vigente, con cobertura; Leve; COP 1.000.000; riesgo 10; confianza 90 | AprobadoAutomaticamente, Estado Aprobado; sin tarea humana ni pago real. |
-| P11 | HU-13 | Póliza vencida o cancelada | Rechazado con motivo concreto y evento de auditoría. |
-| P12 | HU-13 | Caso Grave o RiesgoFraude 80 | RevisionManual y Estado PendienteRevision. |
-| P13 | HU-13 | Límite de cobertura inferior al monto solicitado | Rechazado con motivo de límite, sin aprobación automática. |
-| P14 | HU-13 | ConfianzaIA 60 o datos IA malformados | RevisionManual, sin aprobación silenciosa. |
-| P15 | HU-17 | Supervisor cambia asignado A por B | AjustadorAsignado=B; historial conserva A, B, fecha y motivo. |
-| P16 | HU-17 | Reasignar sin motivo | Se bloquea o registra motivo obligatorio; no queda reasignación anónima. |
-| P17 | HU-21 | Siniestro cambia de estado | Genera registros de Correo y SMS **simulados** en < 5 minutos. |
-| P18 | HU-21 | El flujo reintenta el mismo cambio de estado | No duplica notificaciones. |
+| P05 | HU-05 | Crear siniestro desde la app | La lista Siniestros refleja el caso sin digitación duplicada. **Pasa (2026-11-02, ver §13).** |
+| P06 | HU-05 | Reenviar el mismo evento o reintentar flujo | No duplica casos ni eventos de decisión. **Pasa (2026-11-02, ver §13).** |
+| P07 | HU-09 | Imagen sintética de daño leve | Devuelve Leve, confianza y justificación. **Pasa (2026-11-03, ver §16).** |
+| P08 | HU-09 | Imágenes sintéticas de daño medio y grave | Devuelve Medio/Grave y conserva la traza en AnalisisIA. **Pasa (2026-11-03, ver §16).** |
+| P09 | HU-09 | Imagen ilegible o error de proveedor/API | No se aprueba; se deriva a revisión y se registra error. **Pasa parcialmente:** imagen ilegible → revisión manual (ver §16). El error del proveedor/API está cubierto por diseño pero **no se forzó en prueba**. |
+| P10 | HU-13 | Póliza activa, vigente, con cobertura; Leve; COP 1.000.000; riesgo 10; confianza 90 | AprobadoAutomaticamente, Estado Aprobado; sin tarea humana ni pago real. **Pasa (2026-11-03, ver §16);** la IA devolvió confianza 85, no 90. |
+| P11 | HU-13 | Póliza vencida o cancelada | Rechazado con motivo concreto y evento de auditoría. **Pasa (2026-11-03, ver §16).** |
+| P12 | HU-13 | Caso Grave o RiesgoFraude 80 | RevisionManual y Estado PendienteRevision. **Pasa para el caso Grave (ver §16).** RiesgoFraude 80 **no se pudo provocar** con fotos sintéticas; la regla está implementada pero sin prueba. |
+| P13 | HU-13 | Límite de cobertura inferior al monto solicitado | Rechazado con motivo de límite, sin aprobación automática. **Pasa (2026-11-03, ver §16).** |
+| P14 | HU-13 | ConfianzaIA 60 o datos IA malformados | RevisionManual, sin aprobación silenciosa. **Pasa para confianza baja (30, ver §16).** Datos de IA malformados: cubierto por Parse JSON con esquema, **no forzado en prueba**. |
+| P15 | HU-17 | Supervisor cambia asignado A por B | AjustadorAsignado=B; historial conserva A, B, fecha y motivo. **Pasa (2026-11-02, vista previa y teléfono real, ver §14).** |
+| P16 | HU-17 | Reasignar sin motivo | Se bloquea o registra motivo obligatorio; no queda reasignación anónima. **Pasa (2026-11-02, vista previa y teléfono real, ver §14).** |
+| P17 | HU-21 | Siniestro cambia de estado | Genera registros de Correo y SMS **simulados** en < 5 minutos. **Pasa (2026-11-02, ver §15).** |
+| P18 | HU-21 | El flujo reintenta el mismo cambio de estado | No duplica notificaciones. **Pasa tras corrección (2026-11-02, ver §15).** |
 | P19 | RNF-05 | Auditar aprobación y rechazo | Cada transición tiene fecha, origen/responsable y motivo. |
-| P20 | RNF-01 | Ejecutar lote de análisis de prueba | Medir latencia y evidenciar si < 120 s; no declararlo cumplido antes. |
+| P20 | RNF-01 | Ejecutar lote de análisis de prueba | Medir latencia y evidenciar si < 120 s; no declararlo cumplido antes. **Medido (2026-11-03):** 9 ejecuciones de FL01 entre 2 y 14 s (las 6 que llamaron a la IA, entre 7 y 14 s). Muestra pequeña; no es una prueba de carga. |
 
 **Evidencia por caso:** código de siniestro ficticio, captura del formulario, registro en Lists, historial de ejecución de flujo (sin secretos), salida estructurada de IA anonimizada, estado/decisión final, tiempo de extremo a extremo y resultado **Pasa/Falla**.
 
@@ -322,3 +326,150 @@ H01-02 y H01-03 se verificaron directamente en Siniestros (código, campos, esta
 - La prueba H01-03 se registró con monto 0,5 por error de digitación del probador; es un valor positivo válido según la regla actual. Si el equipo quiere un mínimo realista, debe añadirse como regla nueva.
 - FL01 (*Validar siniestro simulado*) sigue bloqueado con la condición de disparador `@equals(1,0)`; no procesó los registros de prueba (Procesado = No). Sus pruebas funcionales siguen pendientes (HU-05, HU-09, HU-13).
 - No se enviaron mensajes ni se hicieron pagos reales.
+
+## 13. Avance HU-05: registro automático en el core simulado (2026-11-02)
+
+**Estado:** implementada y probada con datos sintéticos. Pendiente solo la aceptación del equipo/docente para cerrar el issue [#27](https://github.com/SaraEcheGom/Automatizacion/issues/27).
+
+### Qué quedó implementado
+
+- La app de HU-01 escribe cada reporte directamente en **Siniestros**, que actúa como core simulado; no hay transcripción manual.
+- Flujo **FL02 - Registrar alta de siniestro**, activo e incluido en la solución **GestionSiniestros**:
+  1. Disparador "Cuando se crea un elemento" en Siniestros (solo creación, sondeo cada minuto).
+  2. *Get items* en HistorialSiniestros con filtro `Title eq '<código>' and Accion eq 'Creado'` (máximo 1).
+  3. Condición `length(resultado) = 0`:
+     - **Sí:** crea el evento con Título = código, FechaEvento = `utcNow()`, Accion = Creado, EstadoNuevo = Estado del siniestro, Responsable = FL02, Origen = Automatizacion, Motivo = "Alta registrada desde la app móvil (HU-01). Registro simulado."
+     - **No:** no escribe nada (idempotencia ante reintentos).
+- FL02 no modifica Siniestros, así que no puede reactivarse a sí mismo ni disparar FL01.
+- Listas nuevas creadas en el sitio del curso: AnalisisIA, HistorialSiniestros y NotificacionesSimuladas (ver §3).
+
+### Resultados de pruebas
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| P05 | Alta desde la app móvil con datos y foto sintéticos | **Pasa** | Siniestro creado con estado PendienteAnalisis; FL02 se ejecutó en < 1 s y registró el evento "Creado" en HistorialSiniestros unos 30 s después del alta. |
+| P06 | Reenviar dos veces la misma ejecución de FL02 | **Pasa** | Tres ejecuciones correctas para el mismo siniestro y un solo evento "Creado" en HistorialSiniestros. |
+
+### Observaciones
+
+- Los registros de prueba de HU-01 creados antes de activar FL02 no tienen evento "Creado"; se dejaron así intencionalmente.
+- FL01 sigue bloqueado con `@equals(1,0)` y no procesó ningún registro.
+- No se enviaron mensajes ni se hicieron pagos reales.
+
+## 14. Avance HU-17: reasignar casos (2026-11-02)
+
+**Estado:** implementada, publicada y probada en vista previa y en teléfono real con datos ficticios. Incluida en la solución GestionSiniestros. Pendiente solo la aceptación del equipo/docente para cerrar el issue [#39](https://github.com/SaraEcheGom/Automatizacion/issues/39).
+
+### Qué quedó implementado
+
+- App de lienzo separada **GestionSiniestros - Supervision HU17** (rol supervisor, diseño Teléfono), **publicada e incluida en la solución GestionSiniestros**; solo la usa el propietario, sin compartir ni ampliar permisos, para que el reportante de HU-01 nunca vea la reasignación.
+- Pantalla con: selector del caso (Siniestros, más reciente primero), liquidador actual y estado, selector del nuevo liquidador (lista fija ficticia: Liquidador Ana, Bruno y Carla, todos ficticios), motivo obligatorio y botón **Reasignar caso**.
+- Al reasignar:
+  1. Valida caso seleccionado, motivo no vacío ni solo espacios y que el nuevo liquidador sea distinto del actual.
+  2. Actualiza `AjustadorAsignado` en Siniestros.
+  3. Si lo anterior funciona, registra en HistorialSiniestros: Accion = Reasignado, AsignadoAntes, AsignadoDespues, FechaEvento, Estado (anterior y nuevo, sin cambio), Responsable = usuario que reasigna, Origen = Usuario y Motivo.
+  4. Si falla la actualización, no escribe en el historial; si falla solo el historial, lo informa explícitamente.
+- Decisión de diseño: el registro lo hace la app y no un flujo F04, porque el disparador de SharePoint no expone el valor anterior de `AjustadorAsignado`.
+
+### Resultados de pruebas (vista previa, datos ficticios)
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| P16a | Reasignar con motivo vacío | **Pasa** | Mensaje "El motivo es obligatorio"; sin cambios ni eventos. |
+| P16b | Reasignar con motivo solo de espacios | **Pasa** | Mismo bloqueo; sin cambios ni eventos. |
+| H17-01 | Reasignar al mismo liquidador | **Pasa** | Advertencia; sin cambios ni eventos. |
+| P15a | Sin asignar → Liquidador Ana (ficticio) | **Pasa** | Siniestro actualizado; evento con antes "Sin asignar", después "Liquidador Ana (ficticio)", fecha, responsable y motivo. |
+| P15b | Liquidador Ana → Liquidador Bruno (ficticios) | **Pasa** | Siniestro con Bruno; evento con antes "Liquidador Ana", después "Liquidador Bruno". |
+
+### Resultados de pruebas (teléfono real, app publicada, datos ficticios)
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| H17-M01 | Abrir la app publicada en el celular y seleccionar el caso de prueba | **Pasa** | Muestra liquidador actual "Liquidador Bruno (ficticio)" y estado. |
+| H17-M02 | Reasignar sin motivo | **Pasa** | Mensaje "El motivo es obligatorio"; sin cambios ni eventos. |
+| H17-M03 | Reasignar al mismo liquidador | **Pasa** | Advertencia; sin cambios ni eventos. |
+| H17-M04 | Liquidador Bruno → Liquidador Carla (ficticios) con motivo | **Pasa** | Mensaje de éxito; siniestro con "Liquidador Carla (ficticio)"; evento Reasignado con antes Bruno, después Carla, fecha, responsable y motivo. |
+
+Verificado directamente en las listas: el caso de prueba quedó con "Liquidador Carla (ficticio)" y HistorialSiniestros tiene, para ese código, un evento "Creado" y tres "Reasignado" (Sin asignar → Ana → Bruno → Carla), en orden y sin duplicados.
+
+### Riesgos y pendientes
+
+- **Interacción con FL01:** cada reasignación modifica el siniestro. Cuando se desbloquee FL01 (disparador "creado o modificado" con Procesado = No), una reasignación podría volver a disparar el análisis. Debe resolverse al trabajar HU-09/HU-13, por ejemplo marcando Procesado al terminar el análisis o filtrando por Estado en la condición del disparador.
+- El rol supervisor no está restringido técnicamente (cualquier persona con acceso a la app podría reasignar); queda como mejora de RNF-04.
+- Prueba en teléfono real: **Pasa** (ver tabla anterior).
+
+## 15. Avance HU-21: avisos simulados de correo y SMS (2026-11-02)
+
+**Estado:** implementada y probada con datos ficticios. **No se envía ningún correo ni SMS real**: solo se generan registros simulados. Pendiente: que el equipo/docente acepte esta adaptación del criterio original ("mensajes enviados") y cierre el issue [#43](https://github.com/SaraEcheGom/Automatizacion/issues/43).
+
+### Qué quedó implementado
+
+- Flujo de nube **FL03 - Generar avisos simulados**, incluido en la solución GestionSiniestros y activado.
+- Disparador: SharePoint "Cuando se crea o se modifica un elemento" en Siniestros, con control de simultaneidad = 1 (una ejecución a la vez, para evitar duplicados por carreras).
+- Pasos:
+  1. Obtiene de NotificacionesSimuladas el último aviso de **Correo** del mismo código de caso (`Title eq '<código>' and Canal eq 'Correo'`, orden `ID desc`, máximo 1).
+  2. Condición: si su `TipoEvento` (o `ninguno` si no existe) es distinto de `CambioEstado:<Estado actual>`, el estado cambió desde el último aviso.
+  3. Si cambió, crea dos registros: uno con Canal = Correo y otro con Canal = SMS. Cada uno lleva el código del caso, FechaEvento = fecha de modificación del siniestro, `TipoEvento = CambioEstado:<estado>`, un destinatario marcado "simulado (no se envía)" con el nombre ficticio del asegurado, un mensaje que empieza por "[SIMULADO - NO ENVIADO]" y EstadoSimulacion = Generada.
+  4. Si no cambió (reasignaciones, ediciones de otros campos o reprocesos del mismo cambio), no hace nada.
+- No usa conectores de Outlook, SMS ni similares.
+
+### Resultados de pruebas (datos ficticios, caso de prueba SIN-7bd20af3…)
+
+| ID | Escenario | Resultado | Evidencia |
+| --- | --- | --- | --- |
+| P17 | Estado PendienteAnalisis → PendienteRevision | **Pasa** | Avisos 1 (Correo) y 2 (SMS) creados 34 s después del cambio. |
+| P18 (1.er intento) | Guardar de nuevo el mismo estado | **Falla** | Se crearon avisos duplicados (3 y 4). Causa: el diseñador clásico guardó la condición como texto escapado (`@@{...}`), así que comparaba dos cadenas literales siempre distintas. |
+| P18 (tras corrección) | Guardar de nuevo el mismo estado | **Pasa** | La condición se corrigió en el diseñador nuevo (verificada en vista de código). FL03 se ejecutó y no creó avisos nuevos. |
+| H21-01 | Estado PendienteRevision → PendienteAnalisis | **Pasa** | Avisos 5 (Correo) y 6 (SMS) creados 34 s después del cambio. El caso quedó de nuevo en PendienteAnalisis. |
+
+Los avisos 3 y 4 se conservan en la lista como evidencia del defecto encontrado y corregido.
+
+### Riesgos y pendientes
+
+- **Adaptación del criterio:** HU-21 pide mensajes enviados; el MVP solo demuestra la generación de avisos simulados. Debe aceptarse expresamente.
+- La deduplicación se basa en el último aviso registrado: si FL03 falla entre la creación del aviso de Correo y la del SMS, el reintento no crearía el SMS. Riesgo bajo para el prototipo.
+- Cuando se desbloquee FL01, cada cambio de estado que haga generará avisos, que es el comportamiento esperado.
+- FL01 sigue bloqueado con `@equals(1,0)`; las pruebas de HU-21 no lo dispararon.
+
+## 16. Avance HU-09 y HU-13: clasificación desde fotos y aprobación automática (2026-11-03)
+
+**Estado:** implementadas y probadas con pólizas, casos y fotos **ficticios/sintéticos**. FL01 quedó **desbloqueado** (se retiró `@equals(1,0)` con autorización de Felipe). Pendiente: aceptación del equipo/docente para cerrar [#31](https://github.com/SaraEcheGom/Automatizacion/issues/31) y [#35](https://github.com/SaraEcheGom/Automatizacion/issues/35), y ratificar los umbrales.
+
+### Qué quedó implementado (FL01 - Validar siniestro simulado)
+
+- **Disparador:** "Cuando se crea o modifica un elemento" en Siniestros, con condiciones `Procesado = No` **y** `Estado = PendienteAnalisis`. Como FL01 deja Procesado = Sí y cambia el estado, sus propias actualizaciones y las reasignaciones de HU-17 ya no lo vuelven a disparar (resuelve el riesgo anotado en §14).
+- **Póliza:** busca hasta 2 pólizas con el número del siniestro y exige exactamente una.
+- **Reglas** leídas de ConfigReglasSimuladas (§3.F), evaluadas en este orden:
+  1. Póliza inexistente o duplicada, no activa, fuera de vigencia, sin cobertura de daños, monto no positivo o mayor que el límite → **Rechazado** con motivo concreto (no se llama a la IA).
+  2. Sin fotos o con error/respuesta no válida de la IA → **RevisionManual / PendienteRevision**.
+  3. RiesgoFraude ≥ 60 → **RevisionManual** prioritaria por posible fraude.
+  4. Severidad Leve, monto ≤ 2.000.000, riesgo ≤ 20 y confianza ≥ 85 → **AprobadoAutomaticamente / Aprobado**, sin tarea humana ni pago real.
+  5. Cualquier otro caso → **RevisionManual / PendienteRevision**.
+- **IA (HU-09):** envía la descripción y hasta 3 fotos adjuntas (como `image_url` en base64) a openai/gpt-4o-mini con la operación ClasificarDanio. Pide un JSON con tipo_danio, severidad (Leve/Medio/Grave; "Medio" = "moderado" de la HU), confianza, riesgo_fraude, resumen y justificación, y lo valida con un esquema. El modelo solo sugiere; la decisión la aplican las reglas.
+- **Trazabilidad:** una fila por análisis en AnalisisIA (incluido ResultadoTecnico Correcto/Error/NoConcluyente); Siniestros actualizado con Estado, Decision, MotivoDecision, Severidad, ConfianzaIA, RiesgoFraude, CoberturaValida y Procesado; un evento `DecisionAutomatica:<decisión>` en HistorialSiniestros con Responsable FL01 y Origen Automatizacion. FL03 genera los avisos simulados del cambio de estado.
+- **Construcción:** el bloque principal se armó como un ámbito ("Analizar y decidir") y se pegó en el diseñador nuevo, porque el diseñador clásico escapa las expresiones en condiciones (ver §15).
+
+### Resultados de pruebas (datos y fotos sintéticos)
+
+| ID | Caso de prueba | Esperado | Resultado | Evidencia |
+| --- | --- | --- | --- | --- |
+| P07, P10 | SIN-PRU-HU13-A · POL-1001 activa · 1.000.000 · foto de rayón | Leve y aprobación automática | **Pasa** | IA: "Rayón superficial", Leve, confianza 85, riesgo 10 → Aprobado. |
+| P08 | SIN-PRU-HU09-M · POL-1001 · 1.800.000 · foto de abolladura | Medio y revisión | **Pasa** | IA: "Abolladura con pintura levantada", Medio, 85, 10 → PendienteRevision. |
+| P08, P12 | SIN-PRU-HU13-D · POL-1001 · 1.500.000 · foto de choque frontal | Grave y revisión | **Pasa** | IA: "Daño estructural y vidrio roto", Grave, 85, 20 → PendienteRevision. |
+| P11 | SIN-PRU-HU13-B · POL-1002 vencida | Rechazo | **Pasa** | Rechazado: "La póliza no está activa (estado: Vencida)". |
+| H13-01 | SIN-PRU-HU13-C · POL-1003 sin cobertura | Rechazo | **Pasa** | Rechazado: "La póliza no incluye cobertura de daños". |
+| P13 | SIN-PRU-HU13-E · POL-1005 límite 500.000 · monto 1.000.000 | Rechazo por límite | **Pasa** | Rechazado: "El monto estimado supera el límite de cobertura de la póliza". |
+| H13-02 | SIN-PRU-HU13-F · POL-9999 inexistente | Rechazo | **Pasa** | Rechazado: "No se encontró una póliza única con el número indicado". |
+| H09-01 | SIN-PRU-HU09-X · sin fotos | Revisión por falta de evidencia | **Pasa** | PendienteRevision; AnalisisIA con ResultadoTecnico NoConcluyente; no se llamó a la IA. |
+| P09, P14 | SIN-PRU-HU09-I · foto ilegible (gris con ruido) | No aprobar | **Pasa** | IA: Leve con confianza 30 ("la imagen no es legible") → PendienteRevision. |
+
+Los 9 casos quedaron con Procesado = Sí y un evento FL01 cada uno en HistorialSiniestros. Las 9 ejecuciones de FL01 terminaron correctamente, entre 2 y 14 s.
+
+### Riesgos y pendientes
+
+- **No probados por no poder forzarlos con datos sintéticos:** RiesgoFraude ≥ 60, error del proveedor/timeout y JSON malformado. El diseño los envía a revisión manual, pero no hay evidencia de ejecución.
+- La confianza la reporta el propio modelo; no está calibrada. El modelo respondió 85 en varios casos, justo en el umbral, así que conviene que el equipo revise ese valor.
+- Las fotos son dibujos sintéticos, no fotografías reales; el resultado no demuestra precisión con daños reales.
+- Cada análisis consume saldo de la clave de OpenRouter del equipo (unas pocas imágenes pequeñas por caso).
+- Al cambiar el conector se eliminó la operación ProbarConexion; cualquier flujo que la usara debe pasar a ClasificarDanio (FL01 ya lo hace).
+
