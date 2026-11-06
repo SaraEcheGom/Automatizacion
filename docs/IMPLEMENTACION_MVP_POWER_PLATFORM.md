@@ -615,3 +615,36 @@ FL04 a FL08 se crearon dentro de la solución GestionSiniestros y usan la refere
 - **FL05 y FL06** solo se probaron con ejecuciones manuales. Falta observar las ejecuciones programadas.
 - **Casos atascados:** hay tres casos de pruebas anteriores, creados por la app el 2/11 (`SIN-…` con POL-TEST-00x), que siguen en PendienteAnalisis. FL01 solo los procesará si se modifican.
 - **Cada análisis con fotos consume saldo de OpenRouter.** Las pruebas de este bloque usaron una sola foto sintética, en dos intentos: el primero falló por una expresión, que ya se corrigió.
+
+## 19. Avance HU-03: consultar el estado del caso en línea (2026-11-05)
+
+**Estado:** implementada, probada en la vista previa de Power Apps Studio con casos ficticios y publicada. Pendiente: probarla en el celular y que el equipo o el docente la acepten para cerrar [#25](https://github.com/SaraEcheGom/Automatizacion/issues/25).
+
+### Qué se hizo (app "GestionSiniestros - Reportar siniestro HU01")
+
+- **Pantalla nueva `ScrConsultaEstado`:** el cliente escribe su documento (ficticio) y, si quiere, el número de caso. La galería muestra cada caso con:
+  - el número de caso;
+  - el **estado**;
+  - la **fecha del último cambio** (columna Modificado), en hora local.
+- Los casos se ordenan del más reciente al más antiguo.
+- Mensajes de apoyo:
+  - "Ingrese un documento para consultar." cuando el campo está vacío;
+  - "No se encontraron casos con esos datos." cuando no hay resultados.
+- **Navegación:** botón "Consultar mi caso" en la cabecera de la pantalla de reporte, y botón "Volver a reportar" en la consulta.
+- **Construcción:** los controles se pegaron como código YAML en Power Apps Studio (Label 2.5.1, Classic TextInput 2.3.2, Gallery 2.15.0 y Classic Button 2.2.0). No se cambiaron listas, flujos ni permisos.
+
+### Pruebas (vista previa de Studio, datos ficticios)
+
+| Caso | Esperado | Resultado |
+| --- | --- | --- |
+| Documento PRUEBA-005 | Casos del asegurado con estado y fecha | **Pasa:** SIN-PRU-HU18-B (Aprobado, 05/11/2026 19:25), SIN-PRU-HU13-E (Rechazado) y SIN-1005 (Borrador). |
+| PRUEBA-005 + número SIN-PRU-HU13-E | Solo ese caso | **Pasa:** Rechazado, último cambio 03/11/2026 09:16. |
+| Documento inexistente | Mensaje sin resultados | **Pasa:** "No se encontraron casos con esos datos." |
+| Botones de navegación | Ir y volver entre reporte y consulta | **Pasa** |
+
+### Riesgos y pendientes
+
+- **Privacidad:** cualquiera que conozca un documento puede ver el estado de esos casos, porque no hay autenticación del cliente. Es aceptable con datos ficticios, pero en un sistema real debe exigirse identidad verificada (relacionado con HU-25).
+- **"Último cambio" usa la fecha de modificación del registro:** también cambia con actualizaciones internas, como la marca de alerta de SLA o el pago simulado. Para mostrar solo cambios de estado habría que leer HistorialSiniestros.
+- **Aviso de delegación:** Studio muestra una advertencia de delegación en el filtro. Con pocos registros ficticios no afecta, pero con más de 500 elementos la búsqueda podría quedar incompleta.
+- **Falta la prueba en el celular** con la app publicada.
