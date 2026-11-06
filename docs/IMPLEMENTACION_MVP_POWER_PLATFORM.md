@@ -525,3 +525,93 @@ Los 9 casos quedaron con Procesado = Sí y un evento FL01 cada uno en HistorialS
 - **HU-11:** el puntaje y el peso de 15 por señal son una propuesta simulada, no un modelo de fraude calibrado. Falta probar un caso con puntaje ≥ 60.
 - **HU-02:** el aviso de número de caso solo se genera al crear el elemento. Si FL02 falla, no hay reintento automático.
 - La operación ProbarConexion se eliminó del conector OpenRouter (ver §16).
+
+## 18. Avance HU-18, HU-19, HU-14, HU-16, HU-20, HU-10, HU-12, HU-06, HU-07, HU-23 y HU-22 (2026-11-05)
+
+**Estado:** implementadas y probadas con datos **ficticios**, con las adaptaciones que se indican abajo. Ningún flujo hace pagos, envía correos o SMS reales ni reentrena modelos. Pendiente: aceptación del equipo/docente para cerrar cada issue.
+
+### Componentes nuevos
+
+| Elemento | Tipo | Para qué |
+| --- | --- | --- |
+| FL04 - Registrar pago simulado | Flujo automatizado (Siniestros) | HU-18 y HU-19. Se dispara cuando Estado = Aprobado y PagoRegistrado ≠ Sí, con concurrencia 1 y control de duplicados. |
+| FL05 - Alertas de SLA simuladas | Flujo programado (cada hora) | HU-16 |
+| FL06 - Reporte diario de pagos simulado | Flujo programado (lunes a viernes, 7:13, hora Colombia) | HU-20 |
+| FL07 - Guardar corrección de IA | Flujo automatizado (AnalisisIA) | HU-12 |
+| FL08 - Encuesta de satisfacción simulada | Flujo automatizado (Siniestros, Estado = Cerrado) | HU-22 |
+| PagosSimulados | Lista ("ERP" ficticio) | Registro de pagos simulados con el número de caso y una referencia `ERP-SIM-…`. |
+| DatosEntrenamientoIA | Lista | Correcciones de la IA guardadas como datos de entrenamiento. |
+| EncuestasSatisfaccion | Lista | Calificación de 1 a 5, con validación en el servidor. |
+| Vistas de Siniestros | Vistas | "Bandeja por prioridad" (HU-14); "Tablero - hoy", "Tablero - ultimos 30 dias" y "Tablero - fraude alto" (HU-23). |
+
+**Columnas nuevas:**
+- Siniestros:
+  - Pago: MontoAprobadoCOP, DeducibleAplicadoCOP, ValorPagoCOP, PagoRegistrado.
+  - SLA: FechaLimiteSLA (calculada como `=[Creado]+3`) y AlertaSLAEnviada.
+  - Estimación de la IA: MontoIAMinCOP, MontoIAMaxCOP, ConfianzaMontoIA, EstimacionMontoIA.
+  - Póliza: AlertaPoliza, DatosPolizaExtraidos, EnlacePoliza.
+  - Tablero y encuesta: HorasHastaDecision, EncuestaEnviada.
+- PolizasSimuladas: DeducibleCOP.
+- AnalisisIA:
+  - Estimación de la IA: MontoIAMinCOP, MontoIAMaxCOP, ConfianzaMontoIA.
+  - Corrección: SeveridadCorregida, TipoDanioCorregido, MotivoCorreccion, CorreccionRegistrada.
+
+**Cambios en FL01** (el ámbito se pegó de nuevo en el diseñador nuevo):
+- La IA también devuelve `monto_estimado_min`, `monto_estimado_max` y `confianza_monto`.
+- FL01 ahora escribe la ficha de la póliza con la confianza de cada campo, una alerta si no encuentra la póliza, el enlace a la póliza y las horas hasta la decisión.
+
+FL04 a FL08 se crearon dentro de la solución GestionSiniestros y usan la referencia de conexión de SharePoint de la solución.
+
+### Decisiones y adaptaciones
+
+- **HU-18:** pago = monto aprobado − deducible de la póliza, con mínimo 0. Si el caso no tiene MontoAprobadoCOP, se usa MontoEstimadoCOP. Se agregó un deducible ficticio a cada póliza: 500.000, 300.000, 400.000, 600.000 y 100.000.
+- **HU-19:** el "ERP" es la lista PagosSimulados. El registro lleva el número de caso (Title) y la referencia `ERP-SIM-aaaammdd-ID`. No hay integración con un ERP real.
+- **HU-14 y HU-16:**
+  - SLA supuesto de 72 h desde la creación. Debe confirmarse con el equipo, porque cambiarlo exige editar la columna calculada y FL05.
+  - La bandeja muestra los casos en PendienteAnalisis, EnAnalisis y PendienteRevision, ordenados por vencimiento.
+  - La alerta va a un supervisor ficticio cuando el caso llega al 80 % del SLA (57,6 h) y está en EnAnalisis o PendienteRevision. Se envía una sola vez por caso.
+  - AjustadorAsignado es texto, no persona, así que la bandeja no filtra "mis casos". Se agrupa o filtra por ajustador.
+- **HU-20:** el reporte es un aviso simulado, en NotificacionesSimuladas, con los pagos del día hábil anterior en hora Colombia; el lunes incluye el fin de semana. El total se calcula en el flujo.
+- **HU-10:** el rango y la confianza del monto los reporta el modelo. La estimación es orientativa, no un avalúo, y no está calibrada con precios reales.
+- **HU-12:**
+  - El liquidador corrige en AnalisisIA las columnas SeveridadCorregida, TipoDanioCorregido y MotivoCorreccion.
+  - FL07 copia la corrección a DatosEntrenamientoIA, con la etiqueta `Medio->Grave`, y registra el evento `CorreccionIA` en el historial.
+  - No se reentrena el modelo automáticamente.
+- **HU-06 y HU-07:**
+  - Las pólizas son registros estructurados ficticios, no PDF, así que no hay extracción de documentos. La confianza de cada campo es 100 % porque el dato viene estructurado.
+  - Si no se encuentra la póliza, AlertaPoliza = Sí y la ficha muestra una alerta; el caso se rechaza por la Cláusula 1.
+  - EnlacePoliza abre la ficha de la póliza. Si no se encontró, abre la lista para buscarla manualmente.
+- **HU-23:**
+  - Sin Power BI, el tablero son vistas de SharePoint con totales: recuento, riesgo promedio, horas promedio hasta la decisión y suma de pagos. Las vistas agrupan por estado.
+  - "Del mes" se implementó como últimos 30 días, porque las vistas de SharePoint no filtran por mes calendario.
+- **HU-22:** al cerrar el caso, FL08 crea la encuesta (Pendiente) y un correo simulado con el enlace al formulario para calificar de 1 a 5.
+
+### Resultados de pruebas (datos ficticios)
+
+| HU | Caso | Esperado | Resultado | Evidencia |
+| --- | --- | --- | --- | --- |
+| HU-18/19 | SIN-PRU-HU18-A · POL-1001 · aprobado 1.200.000 | Pago 700.000 registrado con número de caso | **Pasa** | PagosSimulados: 1.200.000 − 500.000 = 700.000, ref. ERP-SIM-20261106-25; evento `PagoRegistradoSimulado` (FL04). |
+| HU-18 | SIN-PRU-HU18-B · POL-1005 · aprobado 80.000 | Pago no negativo | **Pasa** | Pago 0 (deducible 100.000). |
+| HU-18 | Modificar de nuevo SIN-PRU-HU18-A | Sin pago duplicado | **Pasa** | Un solo registro en PagosSimulados. |
+| HU-14 | Vista "Bandeja por prioridad" | Ordenada por vencimiento del SLA | **Pasa** | Orden ascendente por FechaLimiteSLA; muestra la fecha límite de cada caso. |
+| HU-16 | Ejecución manual de FL05 | Alerta al 80 % solo en casos que lo alcanzaron | **Pasa** | 4 alertas (casos creados el 3/11, al 94–95 % del SLA). Dos casos del 5/11 no se alertaron. Una segunda ejecución no generó duplicados. |
+| HU-20 | Ejecución manual de FL06 con 2 pagos ficticios del 4/11 | Reporte con número de pagos y total | **Pasa** | "Reporte de pagos simulados del 2026-11-04 … Pagos: 2. Total: 750.000 COP", con el detalle; excluye el pago del 5/11. |
+| HU-10 | SIN-PRU-HU10-A · foto sintética de abolladura | Monto con rango y confianza | **Pasa** | "Entre 1.500.000 y 2.100.000 COP (confianza 80/100)"; también en AnalisisIA. |
+| HU-10 | SIN-PRU-HU10-R · POL-1003 sin cobertura | Rechazo sin romper el flujo | **Pasa** | Rechazado por la Cláusula 4; "Sin estimación de IA para este caso". |
+| HU-12 | Corregir el análisis 11 (Medio → Grave) | Corrección guardada como dato de entrenamiento | **Pasa** | DatosEntrenamientoIA: etiqueta `Medio->Grave`; evento `CorreccionIA` (Origen Usuario). |
+| HU-06/07 | SIN-PRU-HU06-A · POL-1001 | Póliza vinculada con datos y confianza | **Pasa** | Ficha con estado, vigencia, cobertura, límite y deducible (100 % c/u) y enlace a la póliza. |
+| HU-06 | SIN-PRU-HU06-B · POL-9998 inexistente | Caso con alerta | **Pasa** | AlertaPoliza = Sí; "ALERTA: no se encontró una póliza única…". |
+| HU-23 | Vista "Tablero - hoy" | Volumen, tiempos y fraude del día | **Pasa** | Recuento 14, riesgo promedio 7, horas hasta la decisión y pagos del día. |
+| HU-22 | Cerrar SIN-PRU-HU18-A | Encuesta 1–5 al cierre | **Pasa** | Encuesta creada y correo simulado con el enlace. La respuesta 4 se guardó y un valor 7 fue rechazado por la validación. |
+
+**Datos insertados manualmente como prueba (no generados por los flujos):**
+- 2 filas de PagosSimulados con origen "Fixture de prueba HU-20".
+- La corrección del análisis 11.
+- La respuesta de la encuesta.
+
+### Riesgos y pendientes
+
+- **HU-03, HU-04 y HU-25 siguen sin implementar.** HU-03 y HU-04 requieren pantallas nuevas en la app. HU-25 implica crear grupos o cambiar permisos en el sitio, y eso necesita autorización explícita del equipo (restricción del proyecto).
+- **FL05 y FL06** solo se probaron con ejecuciones manuales. Falta observar las ejecuciones programadas.
+- **Casos atascados:** hay tres casos de pruebas anteriores, creados por la app el 2/11 (`SIN-…` con POL-TEST-00x), que siguen en PendienteAnalisis. FL01 solo los procesará si se modifican.
+- **Cada análisis con fotos consume saldo de OpenRouter.** Las pruebas de este bloque usaron una sola foto sintética, en dos intentos: el primero falló por una expresión, que ya se corrigió.
